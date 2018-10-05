@@ -20,6 +20,7 @@ use strict;
 use lib qw( ../lib );
 use Template;
 use Template::Test;
+use Template::Plugin::Scalar;
 $^W = 1;
 
 #$Template::Parser::DEBUG = 1;
@@ -49,22 +50,19 @@ sub barf {
 
 __END__
 -- test --
-[% USE scalar -%]
-[% USE cgi = CGI('id=abw&name=Andy+Wardley'); global.cgi = cgi -%]
+[% USE scalar; USE cgi = CGI('id=abw&name=Andy+Wardley'); global.cgi = cgi -%]
 name: [% global.cgi.scalar.param('name') %]
 -- expect --
 name: Andy Wardley
 
 -- test --
-[% USE scalar -%]
-name: [% global.cgi.scalar.param('name') %]
+name: [% USE scalar; global.cgi.scalar.param('name') %]
 
 -- expect --
 name: Andy Wardley
 
 -- test --
-[% USE scalar -%]
-[% FOREACH key = global.cgi.param.sort -%]
+[% USE scalar; FOREACH key = global.cgi.param.sort -%]
    * [% key %] : [% global.cgi.scalar.param(key) %]
 [% END %]
 -- expect --
@@ -72,8 +70,7 @@ name: Andy Wardley
    * name : Andy Wardley
 
 -- test --
-[% USE scalar -%]
-[% FOREACH key = global.cgi.param().sort -%]
+[% USE scalar; FOREACH key = global.cgi.param().sort -%]
    * [% key %] : [% global.cgi.scalar.param(key) %]
 [% END %]
 -- expect --
