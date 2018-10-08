@@ -83,6 +83,7 @@ static SV*      find_perl_op(pTHX_ char*, char*);
 static AV*      mk_mortal_av(pTHX_ SV*, AV*, SV*);
 static SV*      do_getset(pTHX_ SV*, AV*, SV*, int);
 static AV*      convert_dotted_string(pTHX_ const char*, I32);
+static AV*      convert_dotted_string2(pTHX_ const char*, I32);
 static int      get_debug_flag(pTHX_ SV*);
 static int      cmp_arg(const void *, const void *);
 static int      looks_private(pTHX_ const char*);
@@ -771,10 +772,39 @@ static SV* do_getset(pTHX_ SV *root, AV *ident_av, SV *value, int flags) {
     return root;
 }
 
+static AV *convert_dotted_string(pTHX_ const char *str, I32 len) {
+    AV *av = newAV();
+    char *buf, *b;
+    int b_len = 0;
+
+    New(0, buf, len + 1, char);
+    if (!buf)
+        croak(TT_STASH_PKG ": New() failed for convert_dotted_string");
+
+    for(b = buf; len >= 0; str++, len--) {
+        if (*str == '(') {
+            for(; (len > 0) && (*str != '.'); str++, len--) ;
+        }
+        if ((len < 1) || (*str == '.')) {
+            *b = '\0';
+            av_push(av, newSVpv(buf, b_len));
+            av_push(av, newSViv((IV) 0));
+            b = buf;
+            b_len = 0;
+        } else {
+            *b++ = *str;
+            b_len++;
+        }
+    }
+
+    Safefree(buf);
+    return (AV *) sv_2mortal((SV *) av);
+}
+
 #define TT_BUFF_SIZE    64
 /* return [ map { s/\(.*$//; ($_, 0) } split(/\./, $str) ];
  */
-static AV *convert_dotted_string(pTHX_ const char *str, I32 len) {
+static AV *convert_dotted_string2(pTHX_ const char *str, I32 len) {
     char prealloc[64];   /* small pre allocated buffer */
     AV *av = newAV();
     char *buf, *b;
@@ -1211,8 +1241,67 @@ get(root, ident, ...)
         croak(TT_STASH_PKG ": get (arg 2) must be a scalar or listref");
     } 
     else if ((str = SvPV(ident, len)) && memchr(str, '.', len)) {
+
         /* convert dotted string into an array */
         AV *av = convert_dotted_string(aTHX_ str, len);
+        RETVAL = do_getset(aTHX_ root, av, NULL, flags);
+        av_undef(av);
+    } 
+    else {
+        /* otherwise ident is a scalar so we call dotop() just once */
+        RETVAL = dotop(aTHX_ root, ident, args, flags);
+    }
+
+    if (!SvOK(RETVAL)) {
+        dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(root);
+        XPUSHs(ident);
+        PUTBACK;
+        n = call_method("undefined", G_SCALAR);
+        SPAGAIN;
+        if (n != 1)
+            croak("undefined() did not return a single value\n");
+        RETVAL = SvREFCNT_inc(POPs);
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+    }
+    else
+        RETVAL = SvREFCNT_inc(RETVAL);
+
+    OUTPUT:
+    RETVAL
+
+
+SV *
+get2(root, ident, ...)
+    SV *root
+    SV *ident
+    CODE:
+    AV *args;
+    int flags = get_debug_flag(aTHX_ root);
+    int n;
+    STRLEN len;
+    char *str;
+
+    /* look for a list ref of arguments, passed as third argument */
+    args = 
+        (items > 2 && SvROK(ST(2)) && SvTYPE(SvRV(ST(2))) == SVt_PVAV) 
+        ? (AV *) SvRV(ST(2)) : Nullav;
+     
+    if (SvROK(ident) && (SvTYPE(SvRV(ident)) == SVt_PVAV)) {
+        RETVAL = do_getset(aTHX_ root, (AV *) SvRV(ident), NULL, flags);
+
+    } 
+    else if (SvROK(ident)) {
+        croak(TT_STASH_PKG ": get (arg 2) must be a scalar or listref");
+    } 
+    else if ((str = SvPV(ident, len)) && memchr(str, '.', len)) {
+        /* convert dotted string into an array */
+        AV *av = convert_dotted_string2(aTHX_ str, len);
         RETVAL = do_getset(aTHX_ root, av, NULL, flags);
         av_undef(av);
     } 
@@ -1289,4 +1378,43 @@ set(root, ident, value, ...)
     OUTPUT:
     RETVAL
 
+SV *
+set2(root, ident, value, ...)
+    SV *root
+    SV *ident
+    SV *value
+    CODE:
+    int flags = get_debug_flag(aTHX_ root);
+    STRLEN len;
+    char *str;
+
+    /* check default flag passed as fourth argument */
+    flags |= ((items > 3) && SvTRUE(ST(3))) ? TT_DEFAULT_FLAG : 0;
+
+    if (SvROK(ident) && (SvTYPE(SvRV(ident)) == SVt_PVAV)) {
+        RETVAL = do_getset(aTHX_ root, (AV *) SvRV(ident), value, flags);
+
+    } 
+    else if (SvROK(ident)) {
+        croak(TT_STASH_PKG ": set (arg 2) must be a scalar or listref");
+
+    }
+    else if ((str = SvPV(ident, len)) && memchr(str, '.', len)) {
+        /* convert dotted string into a temporary array */
+        AV *av = convert_dotted_string2(aTHX_ str, len);
+        RETVAL = do_getset(aTHX_ root, av, value, flags);
+        av_undef(av);
+    } 
+    else {
+        /* otherwise a simple scalar so call assign() just once */
+        RETVAL = assign(aTHX_ root, ident, Nullav, value, flags);
+    }
+
+    if (!SvOK(RETVAL))
+        RETVAL = newSVpvn("", 0);       /* new empty string */
+    else
+        RETVAL = SvREFCNT_inc(RETVAL);
+        
+    OUTPUT:
+    RETVAL
 
