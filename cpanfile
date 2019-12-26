@@ -19,4 +19,5 @@ on "test" => sub {
         requires "Module::Build"             => 0;
         requires "Test::Pod"                 => 0;
         requires "Test::Pod::Coverage"       => 0;
+        requires "Pod::Coverage::TrustPod"   => 0;
 };
