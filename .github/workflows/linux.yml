@@ -58,15 +58,45 @@ jobs:
       # Try to install multiple plugins to confirm we do not break them
       - name: Template::Plugin::CSV
         run: $CPM_INSTALL_PLUGIN Template::Plugin::CSV
+        env:
+          RELEASE_TESTING: 0
       - name: Template::Plugin::URI
         run: $CPM_INSTALL_PLUGIN Template::Plugin::URI
         env:
           RELEASE_TESTING: 0
       - name: Template::Plugin::Autoformat
         run: $CPM_INSTALL_PLUGIN Template::Plugin::Autoformat
-      # - name: Template-DBI
-      #   run: $CPM_INSTALL_PLUGIN Template::Plugin::DBI
-      # - name: Template::Plugin::Map
-      #   run: $CPM_INSTALL_PLUGIN Template::Plugin::Map
-      # - name: Template::XML
-      #   run: $CPM_INSTALL_PLUGIN Template::XML
+        env:
+          RELEASE_TESTING: 0
+      - name: Template-DBI
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::DBI
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::Plugin::Map
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::Map
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::XML
+        run: $CPM_INSTALL_PLUGIN Template::XML
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::Plugin::HTML::Template
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::HTML::Template
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::Plugin::Dump
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::Dump
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::Plugin::JSON
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::JSON
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::Plugin::MIME
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::MIME
+        env:
+          RELEASE_TESTING: 0
+      - name: Template::Plugin::Cache
+        run: $CPM_INSTALL_PLUGIN Template::Plugin::Cache
+        env:
+          RELEASE_TESTING: 0
